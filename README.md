@@ -37,8 +37,11 @@ python3 -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+
+```sh
 Создать файл .env с переменными окружения:
 BOT_TOKEN=<Токен бота>
 ACCOUNT_ID=<ID чата>
 PRACTICUM_TOKEN=<Токен доступа к API>
+```
 
