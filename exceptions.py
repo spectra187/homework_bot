@@ -20,3 +20,9 @@ class UnknownStatus(Exception):
     """Неизвестный статус домашней работы."""
 
     pass
+
+
+class TelegramBotError(Exception):
+    """Базовый класс исключения."""
+    
+    pass

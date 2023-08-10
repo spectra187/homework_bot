@@ -1,20 +1,24 @@
+import http
 import logging
 import os
-import time
 import sys
+import time
+
 import requests
 import telegram
-import http
-
 from dotenv import load_dotenv
 
+from endpoints import ENDPOINT
 from exceptions import (
-    MessageNotSend,
     InvalidHttpStatus,
     InvalidRequest,
-    UnknownStatus
+    MessageNotSend,
+    UnknownStatus,
+    TelegramBotError
 )
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 load_dotenv()
 
@@ -24,7 +28,6 @@ TELEGRAM_TOKEN = os.getenv('BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('ACCOUNT_ID')
 
 RETRY_PERIOD = 600
-ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 
@@ -33,13 +36,6 @@ HOMEWORK_VERDICTS = {
     'reviewing': 'Работа взята на проверку ревьюером.',
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
-
-logging.basicConfig(
-    level=logging.INFO,
-    filename='logging_for_homework.log',
-    format='%(asctime)s -%(levelname)s - %(name)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 
 def check_tokens():
@@ -55,7 +51,7 @@ def send_message(bot, message):
         logger.debug('Отправка сообщения...')
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         logger.debug('Сообщение отправлено')
-    except Exception:
+    except TelegramBotError:
         logger.error('Сообщение не было доставлено')
         raise MessageNotSend('Сообщение не было доставлено')
 
@@ -100,19 +96,22 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Получаем статус последней домашней работы(если она есть)."""
+    """Получаем статус последней домашней работы (если она есть)."""
     homework_name = homework.get('homework_name')
     status = homework.get('status')
-    if homework_name is not None and status is not None:
-        if status in HOMEWORK_VERDICTS:
-            verdict = HOMEWORK_VERDICTS.get(status)
-            return ('Изменился статус проверки работы'
-                    f' "{homework_name}". {verdict}')
-        logger.error('Неожиданный статус домашней работы:'
-                     f' {verdict}, обнаруженный в ответе API')
-        raise UnknownStatus('Hеизвестный статус')
-    logger.error('Нет ключей')
-    raise KeyError('Нет ключей')
+
+    if homework_name is None or status is None:
+        raise KeyError('Нет ключей')
+
+    if status in HOMEWORK_VERDICTS:
+        verdict = HOMEWORK_VERDICTS[status]
+        return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+
+    logger.error(
+        f'Неожиданный статус домашней работы: {status},'
+        'обнаруженный в ответе API'
+    )
+    raise UnknownStatus('Hеизвестный статус')
 
 
 def main():
@@ -140,4 +139,9 @@ def main():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        level=logging.DEBUG,
+        filename='logging_for_homework.log',
+        format='%(asctime)s -%(levelname)s - %(name)s - %(message)s'
+    )
     main()
